@@ -20,3 +20,56 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+enum ProblemDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Problem {
+  id          String            @id @default(cuid())
+  title       String
+  description String
+  difficulty  ProblemDifficulty
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  requirements      ProblemRequirement[]
+  evaluationRubrics ProblemEvaluationRubric[]
+}
+
+model ProblemRequirement {
+  id          String @id @default(cuid())
+  description String
+  order       Int
+
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([problemId, order])
+  @@index([problemId])
+}
+
+model EvaluationRubric {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  weight      Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  problems ProblemEvaluationRubric[]
+}
+
+model ProblemEvaluationRubric {
+  problemId String
+  rubricId  String
+  guidance  String?
+
+  problem Problem          @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  rubric  EvaluationRubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  @@id([problemId, rubricId])
+  @@index([rubricId])
+}
