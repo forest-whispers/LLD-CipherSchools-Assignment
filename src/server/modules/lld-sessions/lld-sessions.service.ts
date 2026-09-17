@@ -51,3 +51,26 @@ export async function createSessionService(
 
     return session;
 }
+
+export async function listSessionsService(userId: string) {
+    return prisma.lLDSession.findMany({
+        where: {
+            userId,
+        },
+        select: {
+            id: true,
+            createdAt: true,
+            updatedAt: true,
+            problem: {
+                select: {
+                    id: true,
+                    title: true,
+                    difficulty: true,
+                },
+            },
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+    });
+}
