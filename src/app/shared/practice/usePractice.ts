@@ -112,32 +112,99 @@ export function useSubmitAttemptMutation(sessionId: string) {
       attemptId: string;
       input: SubmissionInput;
     }) => practiceApi.submitAttempt(attemptId, input),
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({
+        queryKey: practiceKeys.session(sessionId),
+      });
+      const previousSession = queryClient.getQueryData<LLDSession | null>(
+        practiceKeys.session(sessionId)
+      );
+
+      if (previousSession) {
+        const attempt = previousSession.attempts.find(
+          (a) => a.id === variables.attemptId
+        );
+        const optimisticTranscriptItem: TranscriptItem = {
+          submission: {
+            id: `optimistic-${variables.attemptId}`,
+            attemptId: variables.attemptId,
+            attemptNumber: attempt?.attemptNumber,
+            submittedAt: new Date().toISOString(),
+            requirementsAndAssumptions:
+              variables.input.requirementsAndAssumptions,
+            design: variables.input.design,
+            relationshipsAndInteractions:
+              variables.input.relationshipsAndInteractions,
+            tradeoffsAndDesignDecisions:
+              variables.input.tradeoffsAndDesignDecisions,
+            edgeCasesAndExtensibility:
+              variables.input.edgeCasesAndExtensibility,
+          },
+          evaluation: {},
+        };
+
+        const updated: LLDSession = {
+          ...previousSession,
+          attempts: previousSession.attempts.map((att) =>
+            att.id === variables.attemptId
+              ? { ...att, status: "EVALUATING" }
+              : att
+          ),
+          messageTranscript: [
+            ...(previousSession.messageTranscript || []),
+            optimisticTranscriptItem,
+          ],
+        };
+        queryClient.setQueryData(practiceKeys.session(sessionId), updated);
+        storeSession(updated);
+      }
+
+      return { previousSession };
+    },
     onSuccess: (data: SubmissionResult, variables) => {
       queryClient.setQueryData<LLDSession | null>(
         practiceKeys.session(sessionId),
         (prev) => {
           if (!prev) return prev;
 
-          const newTranscriptItem: TranscriptItem = {
-            submission: {
-              id: data.submission.id,
-              attemptId: data.submission.attemptId,
-              attemptNumber: data.attempt.attemptNumber,
-              submittedAt: data.submission.submittedAt,
-              requirementsAndAssumptions:
-                variables.input.requirementsAndAssumptions,
-              design: variables.input.design,
-              relationshipsAndInteractions:
-                variables.input.relationshipsAndInteractions,
-              tradeoffsAndDesignDecisions:
-                variables.input.tradeoffsAndDesignDecisions,
-              edgeCasesAndExtensibility:
-                variables.input.edgeCasesAndExtensibility,
-            },
-            evaluation: {},
+          const finalizedEvaluation = data.evaluation ?? null;
+          const finalizedSubmission = {
+            id: data.submission.id,
+            attemptId: data.submission.attemptId,
+            attemptNumber: data.attempt.attemptNumber,
+            submittedAt: data.submission.submittedAt,
+            requirementsAndAssumptions:
+              variables.input.requirementsAndAssumptions,
+            design: variables.input.design,
+            relationshipsAndInteractions:
+              variables.input.relationshipsAndInteractions,
+            tradeoffsAndDesignDecisions:
+              variables.input.tradeoffsAndDesignDecisions,
+            edgeCasesAndExtensibility:
+              variables.input.edgeCasesAndExtensibility,
           };
 
           const existingTranscript = prev.messageTranscript || [];
+          const existingIdx = existingTranscript.findIndex(
+            (t) => t.submission.attemptId === data.submission.attemptId
+          );
+
+          let newTranscript: TranscriptItem[];
+          if (existingIdx >= 0) {
+            newTranscript = [...existingTranscript];
+            newTranscript[existingIdx] = {
+              submission: finalizedSubmission,
+              evaluation: finalizedEvaluation,
+            };
+          } else {
+            newTranscript = [
+              ...existingTranscript,
+              {
+                submission: finalizedSubmission,
+                evaluation: finalizedEvaluation,
+              },
+            ];
+          }
 
           const updated: LLDSession = {
             ...prev,
@@ -149,13 +216,22 @@ export function useSubmitAttemptMutation(sessionId: string) {
                   }
                 : att
             ),
-            messageTranscript: [...existingTranscript, newTranscriptItem],
+            messageTranscript: newTranscript,
           };
 
           storeSession(updated);
           return updated;
         }
       );
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousSession) {
+        queryClient.setQueryData(
+          practiceKeys.session(sessionId),
+          context.previousSession
+        );
+        storeSession(context.previousSession);
+      }
     },
   });
 }

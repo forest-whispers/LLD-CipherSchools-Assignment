@@ -9,6 +9,32 @@ export interface Attempt {
   createdAt: string;
 }
 
+export type EvaluationConfidence = "HIGH" | "MEDIUM" | "LOW";
+
+export interface EvaluationCriterion {
+  id?: string;
+  rubricId?: string;
+  criterionName: string;
+  criterionDescription: string;
+  criterionWeight: number;
+  guidance?: string | null;
+  score: number;
+  confidence: EvaluationConfidence;
+  evidence: string[];
+  concerns: string[];
+  suggestion: string;
+}
+
+export interface Evaluation {
+  id?: string;
+  attemptId?: string;
+  overallScore: number;
+  strengths: string[];
+  improvementPriorities: string[];
+  createdAt?: string;
+  criteria: EvaluationCriterion[];
+}
+
 export interface TranscriptItem {
   submission: {
     id: string;
@@ -21,7 +47,7 @@ export interface TranscriptItem {
     tradeoffsAndDesignDecisions?: string;
     edgeCasesAndExtensibility?: string;
   };
-  evaluation: Record<string, unknown>;
+  evaluation: Evaluation | Record<string, unknown> | null;
 }
 
 export interface LLDSession {
@@ -53,16 +79,23 @@ export interface SubmissionInput {
 }
 
 export interface SubmissionResult {
+  message?: string;
   submission: {
     id: string;
     attemptId: string;
     submittedAt: string;
+    requirementsAndAssumptions?: string;
+    design?: string;
+    relationshipsAndInteractions?: string;
+    tradeoffsAndDesignDecisions?: string;
+    edgeCasesAndExtensibility?: string;
   };
   attempt: {
     id: string;
     attemptNumber: number;
     status: AttemptStatus;
   };
+  evaluation?: Evaluation | null;
 }
 
 async function parseResponse<T>(res: Response): Promise<T> {

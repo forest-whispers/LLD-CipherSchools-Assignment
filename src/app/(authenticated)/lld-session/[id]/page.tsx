@@ -12,10 +12,12 @@ import { useProblemDetailQuery } from "@/app/shared/problems/useProblems";
 import {
   Button,
   DifficultyBadge,
+  EvaluationModal,
   Modal,
   Spinner,
   Textarea,
 } from "@/app/shared/components";
+import { Evaluation } from "@/app/shared/practice/practice.api";
 
 export default function LLDSessionPage() {
   const params = useParams();
@@ -34,6 +36,13 @@ export default function LLDSessionPage() {
   // Modal visibility & attempt submitted state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmittedInModal, setIsSubmittedInModal] = useState(false);
+
+  // Evaluation review modal state
+  const [selectedEvaluation, setSelectedEvaluation] =
+    useState<Evaluation | null>(null);
+  const [selectedAttemptNumber, setSelectedAttemptNumber] = useState<
+    number | undefined
+  >(undefined);
 
   // Form state for active attempt
   const [requirementsAndAssumptions, setRequirementsAndAssumptions] =
@@ -342,10 +351,66 @@ export default function LLDSessionPage() {
 
                 {/* Evaluation State Section */}
                 <div className="pt-3 border-t border-zinc-800/80">
-                  <div className="flex items-center gap-2 text-xs text-amber-300 bg-amber-950/30 border border-amber-800/40 px-3 py-2 rounded">
-                    <Spinner size="sm" className="border-amber-400 border-t-amber-200 shrink-0" />
-                    <span>Evaluation: Evaluating...</span>
-                  </div>
+                  {(() => {
+                    const attempt = attempts.find(
+                      (att) => att.id === item.submission.attemptId
+                    );
+                    const evaluation = item.evaluation as Evaluation | null;
+                    const isCompleted = Boolean(
+                      evaluation &&
+                        typeof evaluation === "object" &&
+                        "overallScore" in evaluation
+                    );
+                    const isFailed =
+                      attempt?.status === "FAILED" || item.evaluation === null;
+
+                    if (isCompleted && evaluation) {
+                      return (
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-zinc-950/40 border border-zinc-800/80 px-4 py-3 rounded">
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                              Evaluation:
+                            </span>
+                            <span className="text-xs font-mono font-medium text-zinc-200 bg-zinc-800/60 px-2 py-0.5 rounded border border-zinc-700/50">
+                              Overall Score: {evaluation.overallScore} / 100
+                            </span>
+                          </div>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedEvaluation(evaluation);
+                              setSelectedAttemptNumber(
+                                item.submission.attemptNumber ||
+                                  attempt?.attemptNumber ||
+                                  idx + 1
+                              );
+                            }}
+                          >
+                            View Evaluation
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    if (isFailed) {
+                      return (
+                        <div className="flex items-center gap-2 text-xs text-red-300 bg-red-950/20 border border-red-800/40 px-3 py-2 rounded">
+                          <span>Evaluation: Evaluation failed</span>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="flex items-center gap-2 text-xs text-amber-300 bg-amber-950/30 border border-amber-800/40 px-3 py-2 rounded">
+                        <Spinner
+                          size="sm"
+                          className="border-amber-400 border-t-amber-200 shrink-0"
+                        />
+                        <span>Evaluation: Evaluating...</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             ))}
@@ -367,28 +432,69 @@ export default function LLDSessionPage() {
         maxWidth="max-w-3xl"
       >
         {isSubmittedInModal ? (
-          /* Evaluating State inside Modal */
+          /* Evaluating / Submitted State inside Modal */
           <div className="space-y-5 text-center py-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-amber-800/80 bg-amber-950/40 text-amber-300 text-xs font-semibold uppercase tracking-wider">
-              <Spinner size="sm" className="border-amber-400 border-t-amber-200" />
-              Status: EVALUATING
-            </div>
+            {submitAttemptMutation.data?.attempt.status === "FAILED" ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-red-800/80 bg-red-950/40 text-red-300 text-xs font-semibold uppercase tracking-wider">
+                Status: EVALUATION FAILED
+              </div>
+            ) : submitAttemptMutation.data?.evaluation ? (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-zinc-700 bg-zinc-800/60 text-zinc-200 text-xs font-semibold uppercase tracking-wider">
+                Status: EVALUATION COMPLETED
+              </div>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-amber-800/80 bg-amber-950/40 text-amber-300 text-xs font-semibold uppercase tracking-wider">
+                <Spinner
+                  size="sm"
+                  className="border-amber-400 border-t-amber-200"
+                />
+                Status: EVALUATING
+              </div>
+            )}
 
             <div className="max-w-md mx-auto space-y-2 text-xs text-zinc-300 leading-relaxed">
               <p className="text-sm font-medium text-zinc-100">
                 Your solution has been submitted successfully.
               </p>
-              <p className="text-zinc-400">We are evaluating your submission.</p>
+              {submitAttemptMutation.data?.attempt.status === "FAILED" ? (
+                <p className="text-zinc-400">
+                  Evaluation could not be completed for this attempt.
+                </p>
+              ) : submitAttemptMutation.data?.evaluation ? (
+                <p className="text-zinc-400">
+                  Your evaluation is ready for review.
+                </p>
+              ) : (
+                <p className="text-zinc-400">We are evaluating your submission.</p>
+              )}
               <p className="text-zinc-500 pt-2">
                 You can close this window and continue working on another attempt
-                while we finish your evaluation.
+                at any time.
               </p>
             </div>
 
-            <div className="pt-4">
+            <div className="pt-4 flex items-center justify-center gap-3">
               <Button variant="secondary" size="sm" onClick={handleCloseModal}>
                 Close
               </Button>
+              {submitAttemptMutation.data?.evaluation && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => {
+                    const evalData = submitAttemptMutation.data?.evaluation;
+                    const attNum =
+                      submitAttemptMutation.data?.attempt.attemptNumber;
+                    handleCloseModal();
+                    if (evalData) {
+                      setSelectedEvaluation(evalData);
+                      setSelectedAttemptNumber(attNum);
+                    }
+                  }}
+                >
+                  View Evaluation
+                </Button>
+              )}
             </div>
           </div>
         ) : (
@@ -533,6 +639,14 @@ export default function LLDSessionPage() {
           </div>
         )}
       </Modal>
+
+      {/* EVALUATION REVIEW MODAL */}
+      <EvaluationModal
+        isOpen={Boolean(selectedEvaluation)}
+        onClose={() => setSelectedEvaluation(null)}
+        evaluation={selectedEvaluation}
+        attemptNumber={selectedAttemptNumber}
+      />
     </div>
   );
 }
