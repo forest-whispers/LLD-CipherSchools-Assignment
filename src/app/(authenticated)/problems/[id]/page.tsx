@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useProblemDetailQuery } from "@/app/shared/problems/useProblems";
+import { useCreateSessionMutation } from "@/app/shared/practice/usePractice";
 import { Button, DifficultyBadge, Spinner } from "@/app/shared/components";
 
 export default function ProblemDetailPage() {
   const params = useParams();
   const id = typeof params?.id === "string" ? params.id : "";
   const { data, isLoading, isError, error, refetch } = useProblemDetailQuery(id);
-  const [practiceNotice, setPracticeNotice] = useState(false);
+  const createSessionMutation = useCreateSessionMutation();
 
   const problem = data?.problem;
 
@@ -59,13 +60,16 @@ export default function ProblemDetailPage() {
             <div>
               <Button
                 variant="primary"
-                onClick={() => setPracticeNotice(true)}
+                onClick={() => createSessionMutation.mutate(problem.id)}
+                isLoading={createSessionMutation.isPending}
+                disabled={createSessionMutation.isPending}
               >
                 Start Practice
               </Button>
-              {practiceNotice && (
-                <p className="text-xs text-zinc-400 mt-1.5 sm:text-right">
-                  Practice session creation will be available in the next slice.
+              {createSessionMutation.isError && (
+                <p className="text-xs text-red-400 mt-1.5 sm:text-right">
+                  {createSessionMutation.error?.message ||
+                    "Failed to start practice session."}
                 </p>
               )}
             </div>
