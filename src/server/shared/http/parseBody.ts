@@ -6,10 +6,10 @@ export async function parseBody<T>(
     request: NextRequest,
     schema: z.ZodSchema<T>
 ): Promise<T> {
-    let body: any;
+    let body: unknown;
     try {
         body = await request.json();
-    } catch (e) {
+    } catch {
         throw new BadRequestError("Invalid or missing JSON request body.");
     }
     return schema.parse(body);

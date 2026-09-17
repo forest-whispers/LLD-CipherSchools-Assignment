@@ -7,7 +7,6 @@ import { created } from "@/server/shared/http/response";
 import { createSessionService, listSessionsService } from "./lld-sessions.service";
 import { createSessionSchema } from "./lld-sessions.validation";
 import { ok } from "@/server/shared/http/response";
-import { RouteContext } from "@/server/shared/http/route";
 
 export async function createSessionController(request: NextRequest) {
     const user = await authenticate();
@@ -24,10 +23,7 @@ export async function createSessionController(request: NextRequest) {
     });
 }
 
-export async function listSessionsController(
-    _request: NextRequest,
-    _context: RouteContext
-): Promise<NextResponse> {
+export async function listSessionsController(): Promise<NextResponse> {
     const user = await authenticate();
 
     const sessions = await listSessionsService(user.sub);

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 
 import { parseBody } from "@/server/shared/http/parseBody";
 import { ok } from "@/server/shared/http/response";
