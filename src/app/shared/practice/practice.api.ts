@@ -164,4 +164,14 @@ export const practiceApi = {
     });
     return parseResponse<SubmissionResult>(res);
   },
+
+  async retryEvaluation(attemptId: string): Promise<SubmissionResult> {
+    const res = await fetch(`/api/attempts/${encodeURIComponent(attemptId)}/evaluation`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    return parseResponse<SubmissionResult>(res);
+  },
 };

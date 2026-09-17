@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
   useCreateAttemptMutation,
+  useRetryEvaluationMutation,
   useSessionData,
   useSubmitAttemptMutation,
 } from "@/app/shared/practice/usePractice";
@@ -32,6 +33,7 @@ export default function LLDSessionPage() {
 
   const createAttemptMutation = useCreateAttemptMutation(sessionId);
   const submitAttemptMutation = useSubmitAttemptMutation(sessionId);
+  const retryEvaluationMutation = useRetryEvaluationMutation(sessionId);
 
   // Modal visibility & attempt submitted state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -98,6 +100,8 @@ export default function LLDSessionPage() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setIsSubmittedInModal(false);
+    submitAttemptMutation.reset();
+    retryEvaluationMutation.reset();
   };
 
   // Handle attempt submission
@@ -394,9 +398,34 @@ export default function LLDSessionPage() {
                     }
 
                     if (isFailed) {
+                      const isThisRetrying =
+                        retryEvaluationMutation.isPending &&
+                        retryEvaluationMutation.variables === attempt?.id;
+
                       return (
-                        <div className="flex items-center gap-2 text-xs text-red-300 bg-red-950/20 border border-red-800/40 px-3 py-2 rounded">
-                          <span>Evaluation: Evaluation failed</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-red-950/20 border border-red-800/40 px-3 py-2 rounded">
+                          <span className="text-xs text-red-300">
+                            Evaluation: Evaluation failed
+                          </span>
+                          {attempt?.id && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              disabled={retryEvaluationMutation.isPending}
+                              onClick={() => {
+                                retryEvaluationMutation.mutate(attempt.id);
+                              }}
+                            >
+                              {isThisRetrying ? (
+                                <span className="flex items-center gap-1.5">
+                                  <Spinner size="sm" />
+                                  Retrying...
+                                </span>
+                              ) : (
+                                "Retry Evaluation"
+                              )}
+                            </Button>
+                          )}
                         </div>
                       );
                     }
@@ -433,70 +462,111 @@ export default function LLDSessionPage() {
       >
         {isSubmittedInModal ? (
           /* Evaluating / Submitted State inside Modal */
-          <div className="space-y-5 text-center py-4">
-            {submitAttemptMutation.data?.attempt.status === "FAILED" ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-red-800/80 bg-red-950/40 text-red-300 text-xs font-semibold uppercase tracking-wider">
-                Status: EVALUATION FAILED
-              </div>
-            ) : submitAttemptMutation.data?.evaluation ? (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-zinc-700 bg-zinc-800/60 text-zinc-200 text-xs font-semibold uppercase tracking-wider">
-                Status: EVALUATION COMPLETED
-              </div>
-            ) : (
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-amber-800/80 bg-amber-950/40 text-amber-300 text-xs font-semibold uppercase tracking-wider">
-                <Spinner
-                  size="sm"
-                  className="border-amber-400 border-t-amber-200"
-                />
-                Status: EVALUATING
-              </div>
-            )}
+          (() => {
+            const currentResult =
+              retryEvaluationMutation.data || submitAttemptMutation.data;
+            const isRetrying = retryEvaluationMutation.isPending;
+            const currentStatus = isRetrying
+              ? "EVALUATING"
+              : currentResult?.attempt.status;
+            const currentEvaluation = isRetrying
+              ? null
+              : currentResult?.evaluation;
+            const currentAttemptId = currentResult?.attempt.id;
 
-            <div className="max-w-md mx-auto space-y-2 text-xs text-zinc-300 leading-relaxed">
-              <p className="text-sm font-medium text-zinc-100">
-                Your solution has been submitted successfully.
-              </p>
-              {submitAttemptMutation.data?.attempt.status === "FAILED" ? (
-                <p className="text-zinc-400">
-                  Evaluation could not be completed for this attempt.
-                </p>
-              ) : submitAttemptMutation.data?.evaluation ? (
-                <p className="text-zinc-400">
-                  Your evaluation is ready for review.
-                </p>
-              ) : (
-                <p className="text-zinc-400">We are evaluating your submission.</p>
-              )}
-              <p className="text-zinc-500 pt-2">
-                You can close this window and continue working on another attempt
-                at any time.
-              </p>
-            </div>
+            return (
+              <div className="space-y-5 text-center py-4">
+                {currentStatus === "FAILED" ? (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-red-800/80 bg-red-950/40 text-red-300 text-xs font-semibold uppercase tracking-wider">
+                    Status: EVALUATION FAILED
+                  </div>
+                ) : currentEvaluation ? (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-zinc-700 bg-zinc-800/60 text-zinc-200 text-xs font-semibold uppercase tracking-wider">
+                    Status: EVALUATION COMPLETED
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-amber-800/80 bg-amber-950/40 text-amber-300 text-xs font-semibold uppercase tracking-wider">
+                    <Spinner
+                      size="sm"
+                      className="border-amber-400 border-t-amber-200"
+                    />
+                    Status: EVALUATING
+                  </div>
+                )}
 
-            <div className="pt-4 flex items-center justify-center gap-3">
-              <Button variant="secondary" size="sm" onClick={handleCloseModal}>
-                Close
-              </Button>
-              {submitAttemptMutation.data?.evaluation && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    const evalData = submitAttemptMutation.data?.evaluation;
-                    const attNum =
-                      submitAttemptMutation.data?.attempt.attemptNumber;
-                    handleCloseModal();
-                    if (evalData) {
-                      setSelectedEvaluation(evalData);
-                      setSelectedAttemptNumber(attNum);
-                    }
-                  }}
-                >
-                  View Evaluation
-                </Button>
-              )}
-            </div>
-          </div>
+                <div className="max-w-md mx-auto space-y-2 text-xs text-zinc-300 leading-relaxed">
+                  <p className="text-sm font-medium text-zinc-100">
+                    Your solution has been submitted successfully.
+                  </p>
+                  {currentStatus === "FAILED" ? (
+                    <p className="text-zinc-400">
+                      Evaluation could not be completed for this attempt. You can
+                      retry the evaluation below.
+                    </p>
+                  ) : currentEvaluation ? (
+                    <p className="text-zinc-400">
+                      Your evaluation is ready for review.
+                    </p>
+                  ) : (
+                    <p className="text-zinc-400">
+                      We are evaluating your submission.
+                    </p>
+                  )}
+                  <p className="text-zinc-500 pt-2">
+                    You can close this window and continue working on another
+                    attempt at any time.
+                  </p>
+                </div>
+
+                <div className="pt-4 flex items-center justify-center gap-3">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCloseModal}
+                  >
+                    Close
+                  </Button>
+                  {currentStatus === "FAILED" && currentAttemptId && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      disabled={retryEvaluationMutation.isPending}
+                      onClick={() => {
+                        retryEvaluationMutation.mutate(currentAttemptId);
+                      }}
+                    >
+                      {retryEvaluationMutation.isPending ? (
+                        <span className="flex items-center gap-1.5">
+                          <Spinner size="sm" />
+                          Retrying...
+                        </span>
+                      ) : (
+                        "Retry Evaluation"
+                      )}
+                    </Button>
+                  )}
+                  {currentEvaluation && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => {
+                        const evalData = currentEvaluation;
+                        const attNum =
+                          currentResult?.attempt.attemptNumber;
+                        handleCloseModal();
+                        if (evalData) {
+                          setSelectedEvaluation(evalData);
+                          setSelectedAttemptNumber(attNum);
+                        }
+                      }}
+                    >
+                      View Evaluation
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()
         ) : (
           /* Active Attempt Form inside Modal */
           <div className="space-y-5">

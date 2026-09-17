@@ -72,8 +72,15 @@ export async function evaluateAttemptService(
         throw new NotFoundError("Submission not found");
     }
 
-    if (attempt.status !== "EVALUATING") {
+    if (attempt.status !== "EVALUATING" && attempt.status !== "FAILED") {
         return;
+    }
+
+    if (attempt.status !== "EVALUATING") {
+        await prisma.attempt.update({
+            where: { id: attempt.id },
+            data: { status: "EVALUATING" },
+        });
     }
 
     const rubrics = attempt.session.problem.evaluationRubrics.map(
@@ -118,6 +125,12 @@ export async function evaluateAttemptService(
         );
 
         const evaluation = await prisma.$transaction(async (tx) => {
+            await tx.evaluation.deleteMany({
+                where: {
+                    attemptId: attempt.id,
+                },
+            });
+
             const createdEvaluation = await tx.evaluation.create({
                 data: {
                     attemptId: attempt.id,
@@ -189,6 +202,9 @@ export async function evaluateAttemptService(
             });
 
             return createdEvaluation;
+        }, {
+            maxWait: 15000,
+            timeout: 30000,
         });
 
         return {
@@ -196,6 +212,7 @@ export async function evaluateAttemptService(
             evaluation,
         };
     } catch (error) {
+        console.error("evaluateAttemptService failed with error:", error);
         await prisma.attempt.update({
             where: {
                 id: attempt.id,
@@ -246,3 +263,44 @@ function validateEvaluationResult(
         }
     }
 }
+
+export async function retryEvaluationService(
+    userId: string,
+    attemptId: string
+) {
+    const attempt = await prisma.attempt.findFirst({
+        where: {
+            id: attemptId,
+            session: {
+                userId,
+            },
+        },
+        include: {
+            submission: true,
+        },
+    });
+
+    if (!attempt) {
+        throw new NotFoundError("Attempt not found");
+    }
+
+    if (!attempt.submission) {
+        throw new NotFoundError("Submission not found for this attempt");
+    }
+
+    const evaluationResult = await evaluateAttemptService(attempt.id);
+
+    return {
+        message:
+            evaluationResult?.status === "COMPLETED"
+                ? "Solution evaluated successfully."
+                : "Evaluation failed.",
+        submission: attempt.submission,
+        attempt: {
+            id: attempt.id,
+            attemptNumber: attempt.attemptNumber,
+            status: evaluationResult?.status ?? "FAILED",
+        },
+        evaluation: evaluationResult?.evaluation ?? null,
+    };
+}

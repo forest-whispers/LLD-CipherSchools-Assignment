@@ -19,7 +19,7 @@ const envSchema = z.object({
             .min(5, "JWT_SECRET must be at least 5 characters"),
 
     GEMINI_API_KEY: z.string().optional(),
-    GEMINI_MODEL: z.string().default("gemini-3.6-flash"),
+    GEMINI_MODEL: z.string().default("gemini-3.5-flash-lite"),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

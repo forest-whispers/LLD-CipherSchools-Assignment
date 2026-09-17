@@ -274,3 +274,80 @@ export function useSubmitAttemptMutation(sessionId: string) {
     },
   });
 }
+
+export function useRetryEvaluationMutation(sessionId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (attemptId: string) => practiceApi.retryEvaluation(attemptId),
+    onMutate: async (attemptId) => {
+      await queryClient.cancelQueries({
+        queryKey: practiceKeys.session(sessionId),
+      });
+      const previousSession = queryClient.getQueryData<LLDSession | null>(
+        practiceKeys.session(sessionId)
+      );
+
+      if (previousSession) {
+        const updated: LLDSession = {
+          ...previousSession,
+          attempts: previousSession.attempts.map((att) =>
+            att.id === attemptId ? { ...att, status: "EVALUATING" } : att
+          ),
+          messageTranscript: (previousSession.messageTranscript || []).map(
+            (item) =>
+              item.submission.attemptId === attemptId
+                ? { ...item, evaluation: {} }
+                : item
+          ),
+        };
+        queryClient.setQueryData(practiceKeys.session(sessionId), updated);
+        storeSession(updated);
+      }
+
+      return { previousSession };
+    },
+    onSuccess: (data: SubmissionResult) => {
+      queryClient.setQueryData<LLDSession | null>(
+        practiceKeys.session(sessionId),
+        (prev) => {
+          if (!prev) return prev;
+
+          const finalizedEvaluation = data.evaluation ?? null;
+          const existingTranscript = prev.messageTranscript || [];
+          const newTranscript = existingTranscript.map((item) =>
+            item.submission.attemptId === data.attempt.id
+              ? { ...item, evaluation: finalizedEvaluation }
+              : item
+          );
+
+          const updated: LLDSession = {
+            ...prev,
+            attempts: prev.attempts.map((att) =>
+              att.id === data.attempt.id
+                ? {
+                    ...att,
+                    status: data.attempt.status,
+                  }
+                : att
+            ),
+            messageTranscript: newTranscript,
+          };
+
+          storeSession(updated);
+          return updated;
+        }
+      );
+    },
+    onError: (_err, _attemptId, context) => {
+      if (context?.previousSession) {
+        queryClient.setQueryData(
+          practiceKeys.session(sessionId),
+          context.previousSession
+        );
+        storeSession(context.previousSession);
+      }
+    },
+  });
+}
+
