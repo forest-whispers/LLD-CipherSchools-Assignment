@@ -4,8 +4,15 @@ import { authenticate } from "@/server/shared/auth/authenticate";
 import { parseBody } from "@/server/shared/http/parseBody";
 import { created } from "@/server/shared/http/response";
 
-import { createSessionService, listSessionsService } from "./lld-sessions.service";
-import { createSessionSchema } from "./lld-sessions.validation";
+import {
+    createSessionService,
+    getSessionService,
+    listSessionsService,
+} from "./lld-sessions.service";
+import {
+    createSessionSchema,
+    sessionIdSchema,
+} from "./lld-sessions.validation";
 import { ok } from "@/server/shared/http/response";
 
 export async function createSessionController(request: NextRequest) {
@@ -32,3 +39,18 @@ export async function listSessionsController(): Promise<NextResponse> {
         sessions,
     });
 }
+
+export async function getSessionController(
+    _request: NextRequest,
+    context: { params?: Promise<{ id: string }> }
+) {
+    const user = await authenticate();
+    const params = await context.params;
+    const { id: sessionId } = sessionIdSchema.parse(params);
+
+    const session = await getSessionService(user.sub, sessionId);
+
+    return ok({
+        session,
+    });
+}
