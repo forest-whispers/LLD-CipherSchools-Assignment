@@ -1,5 +1,5 @@
-export default function Home() {
-  return (
-    <div>This is a NextJS project</div>
-  );
+import { redirect } from "next/navigation";
+
+export default function HomePage() {
+  redirect("/problems");
 }
