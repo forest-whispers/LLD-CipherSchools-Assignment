@@ -8,6 +8,7 @@ import {
   practiceApi,
   SubmissionInput,
   SubmissionResult,
+  TranscriptItem,
 } from "./practice.api";
 
 export const practiceKeys = {
@@ -64,7 +65,10 @@ export function useCreateSessionMutation() {
   return useMutation({
     mutationFn: (problemId: string) => practiceApi.createSession(problemId),
     onSuccess: (data) => {
-      const session = data.session;
+      const session = {
+        ...data.session,
+        messageTranscript: data.session.messageTranscript || [],
+      };
       storeSession(session);
       queryClient.setQueryData(practiceKeys.session(session.id), session);
       router.push(`/lld-session/${session.id}`);
@@ -87,6 +91,7 @@ export function useCreateAttemptMutation(sessionId: string) {
           const updated: LLDSession = {
             ...prev,
             attempts: [...prev.attempts, newAttempt],
+            messageTranscript: prev.messageTranscript || [],
           };
           storeSession(updated);
           return updated;
@@ -107,11 +112,33 @@ export function useSubmitAttemptMutation(sessionId: string) {
       attemptId: string;
       input: SubmissionInput;
     }) => practiceApi.submitAttempt(attemptId, input),
-    onSuccess: (data: SubmissionResult) => {
+    onSuccess: (data: SubmissionResult, variables) => {
       queryClient.setQueryData<LLDSession | null>(
         practiceKeys.session(sessionId),
         (prev) => {
           if (!prev) return prev;
+
+          const newTranscriptItem: TranscriptItem = {
+            submission: {
+              id: data.submission.id,
+              attemptId: data.submission.attemptId,
+              attemptNumber: data.attempt.attemptNumber,
+              submittedAt: data.submission.submittedAt,
+              requirementsAndAssumptions:
+                variables.input.requirementsAndAssumptions,
+              design: variables.input.design,
+              relationshipsAndInteractions:
+                variables.input.relationshipsAndInteractions,
+              tradeoffsAndDesignDecisions:
+                variables.input.tradeoffsAndDesignDecisions,
+              edgeCasesAndExtensibility:
+                variables.input.edgeCasesAndExtensibility,
+            },
+            evaluation: {},
+          };
+
+          const existingTranscript = prev.messageTranscript || [];
+
           const updated: LLDSession = {
             ...prev,
             attempts: prev.attempts.map((att) =>
@@ -122,7 +149,9 @@ export function useSubmitAttemptMutation(sessionId: string) {
                   }
                 : att
             ),
+            messageTranscript: [...existingTranscript, newTranscriptItem],
           };
+
           storeSession(updated);
           return updated;
         }

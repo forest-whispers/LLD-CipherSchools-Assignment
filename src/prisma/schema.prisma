@@ -63,7 +63,8 @@ model EvaluationRubric {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  problems ProblemEvaluationRubric[]
+  problems           ProblemEvaluationRubric[]
+  evaluationCriteria EvaluationCriterion[]
 }
 
 model ProblemEvaluationRubric {
@@ -110,6 +111,7 @@ model Attempt {
   sessionId  String
   session    LLDSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   submission Submission?
+  evaluation Evaluation?
 
   @@unique([sessionId, attemptNumber])
   @@index([sessionId])
@@ -126,4 +128,45 @@ model Submission {
 
   attemptId String  @unique
   attempt   Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+}
+
+enum EvaluationConfidence {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model EvaluationCriterion {
+  id           String @id @default(cuid())
+  evaluationId String
+  rubricId     String
+
+  criterionName        String
+  criterionDescription String
+  criterionWeight      Int
+  guidance             String?
+
+  score      Float
+  confidence EvaluationConfidence
+  evidence   Json
+  concerns   Json
+  suggestion String
+
+  evaluation Evaluation       @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  rubric     EvaluationRubric @relation(fields: [rubricId], references: [id])
+
+  @@index([evaluationId])
+  @@index([rubricId])
+}
+
+model Evaluation {
+  id                    String   @id @default(cuid())
+  attemptId             String   @unique
+  overallScore          Float
+  strengths             Json
+  improvementPriorities Json
+  createdAt             DateTime @default(now())
+
+  attempt  Attempt               @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  criteria EvaluationCriterion[]
 }

@@ -9,6 +9,21 @@ export interface Attempt {
   createdAt: string;
 }
 
+export interface TranscriptItem {
+  submission: {
+    id: string;
+    attemptId: string;
+    attemptNumber?: number;
+    submittedAt: string;
+    requirementsAndAssumptions: string;
+    design: string;
+    relationshipsAndInteractions: string;
+    tradeoffsAndDesignDecisions?: string;
+    edgeCasesAndExtensibility?: string;
+  };
+  evaluation: Record<string, unknown>;
+}
+
 export interface LLDSession {
   id: string;
   problemId: string;
@@ -18,6 +33,7 @@ export interface LLDSession {
     difficulty: ProblemDifficulty;
   };
   attempts: Attempt[];
+  messageTranscript?: TranscriptItem[];
 }
 
 export interface CreateSessionResponse {

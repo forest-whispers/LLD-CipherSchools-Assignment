@@ -6,10 +6,17 @@ export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  maxWidth?: string;
   children: React.ReactNode;
 }
 
-export function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  maxWidth = "max-w-lg",
+  children,
+}: ModalProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -41,8 +48,10 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-lg rounded border border-zinc-800 bg-zinc-900 p-6 shadow-xl text-zinc-100">
-        <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+      <div
+        className={`relative z-10 w-full ${maxWidth} max-h-[85vh] flex flex-col rounded border border-zinc-800 bg-zinc-900 shadow-2xl text-zinc-100`}
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 shrink-0">
           {title ? (
             <h3 className="text-base font-semibold text-zinc-100">{title}</h3>
           ) : (
@@ -51,13 +60,13 @@ export function Modal({ isOpen, onClose, title, children }: ModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="text-zinc-400 hover:text-zinc-200 text-sm p-1 rounded focus:outline-none"
+            className="text-zinc-400 hover:text-zinc-200 text-sm p-1 rounded focus:outline-none focus:ring-1 focus:ring-zinc-500"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
-        <div className="pt-4">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );
