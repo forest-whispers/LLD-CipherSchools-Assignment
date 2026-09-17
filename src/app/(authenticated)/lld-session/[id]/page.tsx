@@ -129,6 +129,7 @@ export default function LLDSessionPage() {
     }
 
     setValidationErrors({});
+    setIsSubmittedInModal(true);
     submitAttemptMutation.mutate(
       {
         attemptId: activeAttempt.id,
@@ -143,8 +144,8 @@ export default function LLDSessionPage() {
         },
       },
       {
-        onSuccess: () => {
-          setIsSubmittedInModal(true);
+        onError: () => {
+          setIsSubmittedInModal(false);
         },
       }
     );
@@ -458,7 +459,7 @@ export default function LLDSessionPage() {
             ? `Attempt #${activeAttempt.attemptNumber}`
             : "New Attempt"
         }
-        maxWidth="max-w-3xl"
+        maxWidth={isSubmittedInModal ? "max-w-md" : "max-w-3xl"}
       >
         {isSubmittedInModal ? (
           /* Evaluating / Submitted State inside Modal */
