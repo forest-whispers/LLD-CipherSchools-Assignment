@@ -66,6 +66,21 @@ export interface CreateSessionResponse {
   session: LLDSession;
 }
 
+export type PracticeSessionSummary = {
+  id: string;
+  problem: {
+    id: string;
+    title: string;
+    difficulty: "EASY" | "MEDIUM" | "HARD";
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export interface ListSessionsResponse {
+  sessions: PracticeSessionSummary[];
+}
+
 export interface CreateAttemptResponse {
   attempt: Attempt;
 }
@@ -108,6 +123,13 @@ async function parseResponse<T>(res: Response): Promise<T> {
 }
 
 export const practiceApi = {
+  async listSessions(): Promise<ListSessionsResponse> {
+    const res = await fetch("/api/lld-sessions", {
+      method: "GET",
+    });
+    return parseResponse<ListSessionsResponse>(res);
+  },
+
   async createSession(problemId: string): Promise<CreateSessionResponse> {
     const res = await fetch("/api/lld-sessions", {
       method: "POST",

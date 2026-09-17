@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import {
   Attempt,
   LLDSession,
+  ListSessionsResponse,
+  PracticeSessionSummary,
   practiceApi,
   SubmissionInput,
   SubmissionResult,
@@ -14,7 +16,16 @@ import {
 export const practiceKeys = {
   all: ["practice"] as const,
   session: (id: string) => [...practiceKeys.all, "session", id] as const,
+  sessions: ["lld-sessions"] as const,
 };
+
+export function useSessionsQuery(enabled = true) {
+  return useQuery<ListSessionsResponse>({
+    queryKey: practiceKeys.sessions,
+    queryFn: () => practiceApi.listSessions(),
+    enabled,
+  });
+}
 
 function getStoredSession(sessionId: string): LLDSession | null {
   if (typeof window === "undefined") return null;
@@ -71,6 +82,34 @@ export function useCreateSessionMutation() {
       };
       storeSession(session);
       queryClient.setQueryData(practiceKeys.session(session.id), session);
+
+      // Incrementally update ["lld-sessions"] query cache
+      const newSessionSummary: PracticeSessionSummary = {
+        id: session.id,
+        problem: {
+          id: session.problem.id,
+          title: session.problem.title,
+          difficulty: session.problem.difficulty,
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      queryClient.setQueryData<ListSessionsResponse>(
+        practiceKeys.sessions,
+        (current) => {
+          if (!current) {
+            return { sessions: [newSessionSummary] };
+          }
+          if (current.sessions.some((s) => s.id === newSessionSummary.id)) {
+            return current;
+          }
+          return {
+            sessions: [newSessionSummary, ...current.sessions],
+          };
+        }
+      );
+
       router.push(`/lld-session/${session.id}`);
     },
   });
