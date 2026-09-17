@@ -141,6 +141,13 @@ export const practiceApi = {
     return parseResponse<CreateSessionResponse>(res);
   },
 
+  async getSession(sessionId: string): Promise<CreateSessionResponse> {
+    const res = await fetch(`/api/lld-sessions/${encodeURIComponent(sessionId)}`, {
+      method: "GET",
+    });
+    return parseResponse<CreateSessionResponse>(res);
+  },
+
   async createAttempt(sessionId: string): Promise<CreateAttemptResponse> {
     const res = await fetch(`/api/lld-sessions/${encodeURIComponent(sessionId)}/attempts`, {
       method: "POST",

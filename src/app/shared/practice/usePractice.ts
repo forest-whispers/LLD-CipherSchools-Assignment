@@ -51,11 +51,17 @@ export function useSessionData(sessionId: string) {
 
   return useQuery<LLDSession | null>({
     queryKey: practiceKeys.session(sessionId),
-    queryFn: () => {
-      const cached = queryClient.getQueryData<LLDSession>(
-        practiceKeys.session(sessionId)
-      );
-      if (cached) return cached;
+    queryFn: async () => {
+      if (!sessionId) return null;
+      try {
+        const data = await practiceApi.getSession(sessionId);
+        if (data?.session) {
+          storeSession(data.session);
+          return data.session;
+        }
+      } catch (err) {
+        console.warn("Failed to fetch session from API, checking local storage:", err);
+      }
       return getStoredSession(sessionId);
     },
     initialData: () => {
@@ -63,7 +69,8 @@ export function useSessionData(sessionId: string) {
         practiceKeys.session(sessionId)
       );
       if (cached) return cached;
-      return getStoredSession(sessionId);
+      const stored = getStoredSession(sessionId);
+      return stored ?? undefined;
     },
     enabled: Boolean(sessionId),
   });
