@@ -14,11 +14,14 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String @id @default(cuid())
+  email        String @unique
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+
+  lldSessions LLDSession[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum ProblemDifficulty {
@@ -37,6 +40,7 @@ model Problem {
 
   requirements      ProblemRequirement[]
   evaluationRubrics ProblemEvaluationRubric[]
+  sessions          LLDSession[]
 }
 
 model ProblemRequirement {
@@ -72,4 +76,54 @@ model ProblemEvaluationRubric {
 
   @@id([problemId, rubricId])
   @@index([rubricId])
+}
+
+model LLDSession {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  problemId String
+  problem   Problem   @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  attempts  Attempt[]
+
+  @@index([userId])
+  @@index([problemId])
+}
+
+enum AttemptStatus {
+  IN_PROGRESS
+  EVALUATING
+  COMPLETED
+  FAILED
+}
+
+model Attempt {
+  id            String        @id @default(cuid())
+  attemptNumber Int
+  status        AttemptStatus @default(IN_PROGRESS)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  sessionId  String
+  session    LLDSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  submission Submission?
+
+  @@unique([sessionId, attemptNumber])
+  @@index([sessionId])
+}
+
+model Submission {
+  id                           String   @id @default(cuid())
+  requirementsAndAssumptions   String
+  design                       String
+  relationshipsAndInteractions String
+  tradeoffsAndDesignDecisions  String?
+  edgeCasesAndExtensibility    String?
+  submittedAt                  DateTime @default(now())
+
+  attemptId String  @unique
+  attempt   Attempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
 }
