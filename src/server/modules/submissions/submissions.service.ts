@@ -3,7 +3,16 @@ import {
     ConflictError,
     NotFoundError,
 } from "@/server/shared/errors/errors";
-import { CreateSubmissionInput } from "./submissions.types";
+
+import { evaluateAttemptService } from "../evaluations/evaluation.service";
+
+type CreateSubmissionInput = {
+    requirementsAndAssumptions: string;
+    design: string;
+    relationshipsAndInteractions: string;
+    tradeoffsAndDesignDecisions?: string;
+    edgeCasesAndExtensibility?: string;
+};
 
 export async function createSubmissionService(
     userId: string,
@@ -35,15 +44,24 @@ export async function createSubmissionService(
         const submission = await tx.submission.create({
             data: {
                 attemptId: attempt.id,
-                requirementsAndAssumptions: input.requirementsAndAssumptions,
+                requirementsAndAssumptions:
+                    input.requirementsAndAssumptions,
                 design: input.design,
-                relationshipsAndInteractions: input.relationshipsAndInteractions,
-                tradeoffsAndDesignDecisions: input.tradeoffsAndDesignDecisions,
-                edgeCasesAndExtensibility: input.edgeCasesAndExtensibility,
+                relationshipsAndInteractions:
+                    input.relationshipsAndInteractions,
+                tradeoffsAndDesignDecisions:
+                    input.tradeoffsAndDesignDecisions,
+                edgeCasesAndExtensibility:
+                    input.edgeCasesAndExtensibility,
             },
             select: {
                 id: true,
                 attemptId: true,
+                requirementsAndAssumptions: true,
+                design: true,
+                relationshipsAndInteractions: true,
+                tradeoffsAndDesignDecisions: true,
+                edgeCasesAndExtensibility: true,
                 submittedAt: true,
             },
         });
@@ -68,5 +86,20 @@ export async function createSubmissionService(
         };
     });
 
-    return result;
+    const evaluationResult = await evaluateAttemptService(
+        result.attempt.id
+    );
+
+    return {
+        message:
+            evaluationResult?.status === "COMPLETED"
+                ? "Solution evaluated successfully."
+                : "Solution submitted, but evaluation failed.",
+        submission: result.submission,
+        attempt: {
+            ...result.attempt,
+            status: evaluationResult?.status,
+        },
+        evaluation: evaluationResult?.evaluation,
+    };
 }
