@@ -3,8 +3,8 @@ export const constants = {
 
     ACCESS_COOKIE_NAME: "accesToken",
 
-    ACCESS_TOKEN_TTL_MS: 30 * 24 * 60 * 60 * 1000,
-    ACCESS_COOKIE_MAX_AGE: 30 * 24 * 60 * 60 * 1000,
+    ACCESS_TOKEN_TTL_MS: 24 * 60 * 60 * 1000,
+    ACCESS_COOKIE_MAX_AGE: 24 * 60 * 60 * 1000,
 
-    ACCESS_COOKIE_PATH: "/api/v1/auth"
+    ACCESS_COOKIE_PATH: "/api/"
 } as const;
