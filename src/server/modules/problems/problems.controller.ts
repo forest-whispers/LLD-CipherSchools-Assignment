@@ -21,7 +21,7 @@ export async function getProblemsController() {
 
 export async function getProblemByIdController(
     _request: NextRequest,
-    context: { params: Promise<{ id: string }> }
+    context: { params?: Promise<{ id: string }> }
 ) {
     await authenticate();
 
